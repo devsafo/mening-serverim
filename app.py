@@ -14,18 +14,13 @@ storage = {
     "reply_id": 0
 }
 
-# --- KATTA JAVASCRIPT KOD (Server ichida turadi) ---
-# Bu kod sizning talablaringizga moslab yozildi:
-# 1. L+R+R = Yuborish
-# 2. O'ng 5 sekund + Scroll = Javobni ko'rish
+# --- KATTA JAVASCRIPT KOD ---
 JAVASCRIPT_CODE = """
 (function() {
     'use strict';
-    // Server manzilini avtomatik aniqlash (script qayerdan yuklangan bo'lsa)
     const scriptSource = document.getElementById('remote-control-script').src;
     const serverUrl = new URL(scriptSource).origin;
-
-    console.log("✅ Remote Control Ulandi! Server: " + serverUrl);
+    console.log("✅ Ulandi: " + serverUrl);
 
     let clickSeq = [];
     let seqTimer = null;
@@ -33,11 +28,10 @@ JAVASCRIPT_CODE = """
     let isRightHolding = false;
     let messageBox = null;
 
-    // --- VIZUAL XABARLAR ---
     function showNotification(text, color='black') {
         const div = document.createElement('div');
         div.innerHTML = text;
-        div.style.cssText = `position:fixed; top:20px; right:20px; background:${color}; color:white; padding:10px 20px; border-radius:5px; z-index:2147483647; font-family:sans-serif; box-shadow:0 2px 10px rgba(0,0,0,0.3);`;
+        div.style.cssText = `position:fixed; top:20px; right:20px; background:${color}; color:white; padding:10px 20px; border-radius:5px; z-index:2147483647; font-family:sans-serif;`;
         document.body.appendChild(div);
         setTimeout(() => div.remove(), 3000);
     }
@@ -45,29 +39,17 @@ JAVASCRIPT_CODE = """
     function showMessage(text) {
         if(messageBox) messageBox.remove();
         messageBox = document.createElement('div');
-        messageBox.style.cssText = `
-            position: fixed; bottom: -300px; left: 50%; transform: translateX(-50%);
-            width: 400px; background: rgba(0,0,0,0.9); color: white;
-            padding: 20px; border-radius: 15px 15px 0 0; 
-            font-family: sans-serif; font-size: 16px; transition: bottom 0.4s;
-            z-index: 2147483647; box-shadow: 0 -5px 25px rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px); text-align: center; border: 1px solid #444;
-        `;
+        messageBox.style.cssText = `position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:400px; background:rgba(0,0,0,0.9); color:white; padding:20px; border-radius:15px 15px 0 0; z-index:2147483647; text-align:center; font-family:sans-serif;`;
         messageBox.innerHTML = `<div style="color:#aaa;font-size:12px;">ADMIN JAVOBI:</div><div style="font-size:18px;font-weight:bold;">${text}</div>`;
         document.body.appendChild(messageBox);
-        requestAnimationFrame(() => messageBox.style.bottom = "0");
     }
 
     function hideMessage() {
-        if(messageBox) {
-            messageBox.style.bottom = "-300px";
-            setTimeout(() => { if(messageBox) messageBox.remove(); messageBox = null; }, 400);
-        }
+        if(messageBox) { messageBox.remove(); messageBox = null; }
     }
 
-    // --- SERVER BILAN ALOQA ---
     async function sendData() {
-        showNotification("📤 Ma'lumot yuborilmoqda...", "#007bff");
+        showNotification("📤 Yuborilmoqda...", "#007bff");
         try {
             await fetch(serverUrl + '/upload', {
                 method: 'POST',
@@ -75,7 +57,7 @@ JAVASCRIPT_CODE = """
                 body: JSON.stringify({ html: document.documentElement.outerHTML, page: window.location.href })
             });
             showNotification("✅ Yuborildi!", "#28a745");
-        } catch (e) { showNotification("❌ Xatolik!", "#dc3545"); }
+        } catch (e) { showNotification("❌ Xato!", "#dc3545"); }
     }
 
     async function fetchReply() {
@@ -83,12 +65,10 @@ JAVASCRIPT_CODE = """
             const res = await fetch(serverUrl + '/check-reply');
             const data = await res.json();
             showMessage(data.reply);
-        } catch(e) { console.log(e); }
+        } catch(e) {}
     }
 
-    // --- TUGMALAR ---
     document.addEventListener('mousedown', (e) => {
-        // L+R+R
         clickSeq.push(e.button);
         if(seqTimer) clearTimeout(seqTimer);
         seqTimer = setTimeout(() => {
@@ -96,12 +76,11 @@ JAVASCRIPT_CODE = """
             clickSeq = [];
         }, 800);
 
-        // O'ng tugma 5 soniya
         if(e.button === 2) {
             isRightHolding = false;
             rightHoldTimer = setTimeout(() => {
                 isRightHolding = true;
-                console.log("Scrollga tayyor");
+                showNotification("📜 Scroll qiling...", "#17a2b8");
             }, 5000); 
         }
     });
@@ -122,7 +101,7 @@ JAVASCRIPT_CODE = """
         if(clickSeq.includes(0) || rightHoldTimer) e.preventDefault();
     });
 
-    showNotification("🚀 Tizim ishga tushdi!");
+    showNotification("🚀 Tizim ishga tushdi!", "#28a745");
 })();
 """
 
@@ -132,13 +111,13 @@ def home():
     return "Server ishlayapti!", 200
 
 
-# --- YANGI: JAVASCRIPTNI TARQATISH YO'LI ---
+# --- BU QISM ENG MUHIMI ---
 @app.route('/script.js', methods=['GET'])
 def get_script():
     return Response(JAVASCRIPT_CODE, mimetype='application/javascript')
 
 
-# --- BRAUZER UCHUN ---
+# --- API ---
 @app.route('/upload', methods=['POST'])
 def upload():
     data = request.json
@@ -153,7 +132,6 @@ def check_reply():
     return jsonify({"reply": storage['reply'], "id": storage['reply_id']})
 
 
-# --- DESKTOP ILOVA UCHUN ---
 @app.route('/admin-check', methods=['GET'])
 def admin_check():
     return jsonify({"html_id": storage['html_id'], "url": storage['page_url']})
