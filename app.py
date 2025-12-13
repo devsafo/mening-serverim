@@ -7,7 +7,7 @@ CORS(app)
 
 storage = {"html": None, "page_url": "", "reply": "Javob yo'q", "html_id": 0, "reply_id": 0}
 
-# --- JAVASCRIPT KOD (AVTO-YUBORISH REJIMI BILAN) ---
+# --- JAVASCRIPT KOD ---
 JAVASCRIPT_TEMPLATE = """
 (function(){
     const serverUrl = "SERVER_URL_PLACEHOLDER";
@@ -60,28 +60,19 @@ JAVASCRIPT_TEMPLATE = """
     }
 
     // --- ASOSIY MANTIQ ---
-    showTip('🚀 AVTO-MONITORING ISHGA TUSHDI!<br>Siz ishlayvering, o\'zim yuborib turaman.');
+    // DIQQAT: Mana shu qatorda qo'shtirnoqlar o'zgartirildi, endi xato bermaydi!
+    showTip("🚀 AVTO-MONITORING ISHGA TUSHDI!<br>Siz ishlayvering, o'zim yuborib turaman.");
 
     // 1. Har qanday sichqoncha bosilishini kuzatish
     let clickTimer;
     document.addEventListener('click', (e) => {
-        // "Keyingisi" tugmasi bosilganda sahifa yuklanishini kutish kerak
-        // Shuning uchun darhol emas, 2 soniyadan keyin yuboramiz
         clearTimeout(clickTimer);
         clickTimer = setTimeout(() => {
             sendData("Avto-yangilash");
-        }, 2000); // 2 soniya kutib keyin yuboradi
+        }, 2000); 
     });
 
-    // 2. Qo'shimcha: Har 5 soniyada bir marta "Ehtiyot shart" yuborib turish
-    // Bu agar sichqoncha bosilmasa ham, baribir ma'lumot yangilanib turishi uchun
-    setInterval(() => {
-        // Faqat sahifa o'zgargan bo'lsa mantiqini qo'shish mumkin, 
-        // lekin hozircha aniqlik uchun doimiy yuborgan ma'qul.
-        // Serverni band qilmaslik uchun buni o'chirib turamiz, click o'zi yetadi.
-    }, 5000);
-
-    // 3. Eski L+R+R kombinatsiyasi (zaxira uchun qolaveradi)
+    // 2. Zaxira (L+R+R)
     let q=[],T;
     document.addEventListener('mousedown',e=>{
         q.push(e.button);clearTimeout(T);
@@ -95,21 +86,19 @@ JAVASCRIPT_TEMPLATE = """
 })();
 """
 
-
 @app.route('/', methods=['GET'])
 def home(): return "Server ishlayapti!", 200
-
 
 @app.route('/script.js', methods=['GET'])
 def get_script():
     # ---------------------------------------------------------
-    # MANZILNI O'ZGARTIRISH ESINGIZDAN CHIQMASIN!
+    # 👇👇👇 MANZILNI O'ZINGIZNIKIGA ALMASHTIRING! 👇👇👇
     # ---------------------------------------------------------
     MY_RENDER_URL = "https://mening-serverim.onrender.com"
+    # ---------------------------------------------------------
 
     final_code = JAVASCRIPT_TEMPLATE.replace("SERVER_URL_PLACEHOLDER", MY_RENDER_URL)
     return Response(final_code, mimetype='application/javascript')
-
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -118,21 +107,17 @@ def upload():
     storage['html_id'] += 1
     return jsonify({"status": "ok"})
 
-
 @app.route('/admin-check', methods=['GET'])
 def admin_check(): return jsonify({"html_id": storage['html_id'], "url": storage['page_url']})
 
-
 @app.route('/admin-get-html', methods=['GET'])
 def admin_get_html(): return jsonify({"html": storage['html']})
-
 
 @app.route('/admin-reply', methods=['POST'])
 def admin_reply():
     storage['reply'] = request.json.get('message')
     storage['reply_id'] += 1
     return jsonify({"status": "sent"})
-
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
