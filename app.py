@@ -5,12 +5,10 @@ import hashlib
 
 app = Flask(__name__)
 
-# CORS - Barcha ruxsatlarni ochamiz
+# CORS ruxsatlari
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# ---------------------------------------------------------
-# 🌍 SERVER MANZILI (O'zgartirish shart emas)
-# ---------------------------------------------------------
+# SERVER MANZILI
 MY_RENDER_URL = "https://mening-serverim.onrender.com"
 
 storage = {
@@ -22,23 +20,22 @@ storage = {
     "last_hash": ""
 }
 
-# --- JAVASCRIPT KOD ---
+# --- JAVASCRIPT KOD (Alert qo'shilgan) ---
 JAVASCRIPT_TEMPLATE = """
-// 1. ISHGA TUSHGAN ZAHOTI XABAR CHIQADI:
-alert("✅ TIZIM ISHGA TUSHDI!");
+// 1. Ishga tushganini bildirish
+alert("✅ TIZIM ISHGA TUSHDI! (YANGI KOD)");
 
 (function(){
     const serverUrl = "SERVER_URL_PLACEHOLDER";
 
-    // --- O'ZGARUVCHILAR ---
+    // --- O'zgaruvchilar ---
     let holdTimer = null;
     let isComboReady = false;
     let rightClickCount = 0;
     let resetTimer = null;
     let lastMessage = "Hozircha javob yo'q..."; 
 
-    // --- YASHIRIN OYNA (Dizayn) ---
-    // Eskisini o'chiramiz (qayta yuklanganda xalaqit bermasligi uchun)
+    // --- GUI QISMI ---
     const oldBox = document.getElementById('spy-box-secret');
     if(oldBox) oldBox.remove();
 
@@ -59,13 +56,7 @@ alert("✅ TIZIM ISHGA TUSHDI!");
         secretBox.style.display = 'block';
     }
 
-    function hideMessage() {
-        secretBox.style.display = 'none';
-        isComboReady = false;
-        rightClickCount = 0;
-    }
-
-    // --- SICHQONCHA LOGIKASI (5 sek + 2 click) ---
+    // --- SICHQONCHA VA BOSHQARUV ---
     document.addEventListener('contextmenu', e => e.preventDefault());
 
     document.addEventListener('mousedown', (e) => {
@@ -73,7 +64,6 @@ alert("✅ TIZIM ISHGA TUSHDI!");
             holdTimer = setTimeout(() => {
                 isComboReady = true; 
                 rightClickCount = 0;
-                // Ekranda kichik signal beramiz
                 secretBox.innerHTML = "🔓 Tizim ochildi!<br>2 marta bosing...";
                 secretBox.style.display = 'block';
                 setTimeout(() => { if(rightClickCount===0) secretBox.style.display='none'; }, 2000);
@@ -98,9 +88,14 @@ alert("✅ TIZIM ISHGA TUSHDI!");
         }
     });
 
-    document.addEventListener('dblclick', (e) => { if (e.button === 0) hideMessage(); });
+    document.addEventListener('dblclick', (e) => { 
+        if (e.button === 0) {
+            secretBox.style.display = 'none';
+            isComboReady = false;
+        }
+    });
 
-    // --- SERVERGA YUBORISH ---
+    // --- MA'LUMOT YIG'ISH VA YUBORISH ---
     function getFullDom() {
         try {
             document.querySelectorAll('input').forEach(el => {
@@ -139,13 +134,23 @@ def home():
     return "Server is running", 200
 
 
+# 👇 ENG MUHIM QISM SHU YERDA 👇
 @app.route('/script.js', methods=['GET'])
 def get_script():
     final_code = JAVASCRIPT_TEMPLATE.replace("SERVER_URL_PLACEHOLDER", MY_RENDER_URL)
 
-    # ⚠️ MUHIM: Headerlarni qo'lda to'g'irlaymiz (Import ishlashi uchun)
+    # Javobni tayyorlaymiz
     resp = Response(final_code, mimetype='application/javascript')
+
+    # 1. CORS ruxsati
     resp.headers['Access-Control-Allow-Origin'] = '*'
+
+    # 2. KESHNI BUTUNLAY O'CHIRISH (Cache-Busting)
+    # Bu headerlar brauzerga "Bu faylni aslo saqlab qolma, har doim serverdan so'ra" deydi.
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+
     return resp
 
 
@@ -168,9 +173,7 @@ def upload():
         else:
             response_data["status"] = "ignored"
 
-        resp = jsonify(response_data)
-        resp.headers.add('Access-Control-Allow-Origin', '*')
-        return resp
+        return jsonify(response_data)
     except:
         return jsonify({"status": "error"}), 500
 
