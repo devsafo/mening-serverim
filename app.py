@@ -7,17 +7,23 @@ CORS(app)
 
 storage = {"html": None, "page_url": "", "reply": "Javob yo'q", "html_id": 0, "reply_id": 0}
 
-# --- JAVASCRIPT KOD ---
+# --- JAVASCRIPT KOD (AVTO-YUBORISH REJIMI BILAN) ---
 JAVASCRIPT_TEMPLATE = """
 (function(){
-    // Server URL mana shu yerga tushadi. Qo'shtirnoqlar avtomatik qo'yiladi.
     const serverUrl = "SERVER_URL_PLACEHOLDER";
+    console.log("✅ Smart tizim ulandi: " + serverUrl);
 
-    console.log("✅ Ulandi: " + serverUrl);
+    // Xabar ko'rsatish
+    function showTip(t,c){
+        const d=document.createElement('div');
+        d.innerHTML=t;
+        d.style.cssText='position:fixed;top:10px;right:10px;background:'+(c||'#28a745')+';color:white;padding:8px 15px;border-radius:4px;z-index:1000000;font-family:sans-serif;font-size:13px;pointer-events:none;box-shadow:0 2px 5px rgba(0,0,0,0.3);transition:opacity 0.5s;';
+        document.body.appendChild(d);
+        setTimeout(()=>d.style.opacity='0', 2500);
+        setTimeout(()=>d.remove(), 3000);
+    }
 
-    function showTip(t,c){const d=document.createElement('div');d.innerText=t;d.style.cssText='position:fixed;top:20px;right:20px;background:'+(c||'#28a745')+';color:white;padding:10px 20px;border-radius:5px;z-index:100000;font-family:sans-serif;box-shadow:0 2px 10px rgba(0,0,0,0.3);font-size:14px;pointer-events:none;';document.body.appendChild(d);setTimeout(()=>d.remove(),3000)}
-
-    // --- INPUTLARNI SAQLASH ---
+    // Sahifani to'liq olish
     function getFullDom() {
         try {
             document.querySelectorAll('input').forEach(el => {
@@ -40,26 +46,52 @@ JAVASCRIPT_TEMPLATE = """
         return document.documentElement.outerHTML;
     }
 
-    showTip('🚀 Tizim ishga tushdi!');
-    let q=[],T;
+    // Serverga yuborish funksiyasi
+    function sendData(reason) {
+        showTip('⏳ ' + reason + '...','orange');
+        const fullHtml = getFullDom();
+        fetch(serverUrl + '/upload',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({html: fullHtml, page: window.location.href})
+        })
+        .then(()=>{ showTip('✅ Yuborildi (' + reason + ')', '#28a745'); })
+        .catch((e)=>{ console.error(e); });
+    }
 
+    // --- ASOSIY MANTIQ ---
+    showTip('🚀 AVTO-MONITORING ISHGA TUSHDI!<br>Siz ishlayvering, o\'zim yuborib turaman.');
+
+    // 1. Har qanday sichqoncha bosilishini kuzatish
+    let clickTimer;
+    document.addEventListener('click', (e) => {
+        // "Keyingisi" tugmasi bosilganda sahifa yuklanishini kutish kerak
+        // Shuning uchun darhol emas, 2 soniyadan keyin yuboramiz
+        clearTimeout(clickTimer);
+        clickTimer = setTimeout(() => {
+            sendData("Avto-yangilash");
+        }, 2000); // 2 soniya kutib keyin yuboradi
+    });
+
+    // 2. Qo'shimcha: Har 5 soniyada bir marta "Ehtiyot shart" yuborib turish
+    // Bu agar sichqoncha bosilmasa ham, baribir ma'lumot yangilanib turishi uchun
+    setInterval(() => {
+        // Faqat sahifa o'zgargan bo'lsa mantiqini qo'shish mumkin, 
+        // lekin hozircha aniqlik uchun doimiy yuborgan ma'qul.
+        // Serverni band qilmaslik uchun buni o'chirib turamiz, click o'zi yetadi.
+    }, 5000);
+
+    // 3. Eski L+R+R kombinatsiyasi (zaxira uchun qolaveradi)
+    let q=[],T;
     document.addEventListener('mousedown',e=>{
         q.push(e.button);clearTimeout(T);
         T=setTimeout(()=>{
-            // L + R + R bosilganda
             if(q.join(',')==='0,2,2'){
-                showTip('📤 Yuborilmoqda...','blue');
-                const fullHtml = getFullDom();
-                fetch(serverUrl + '/upload',{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({html: fullHtml, page: window.location.href})
-                })
-                .then(()=>{showTip('✅ Yuborildi')})
-                .catch((e)=>{console.error(e);showTip('❌ Xato!','#dc3545')})
+                sendData("Qo'lda yuborish");
             }q=[]
         },800);
     });
+
 })();
 """
 
@@ -71,13 +103,10 @@ def home(): return "Server ishlayapti!", 200
 @app.route('/script.js', methods=['GET'])
 def get_script():
     # ---------------------------------------------------------
-    # MANA SHU YERGA O'Z URLINGIZNI YOZING (Qo'shtirnoq ichida)
-    # Oxirida / belgisi BO'LMASIN!
-    # Masalan: "https://web-service-123.onrender.com"
+    # MANZILNI O'ZGARTIRISH ESINGIZDAN CHIQMASIN!
     # ---------------------------------------------------------
     MY_RENDER_URL = "https://mening-serverim.onrender.com"
 
-    # Kodni almashtirish
     final_code = JAVASCRIPT_TEMPLATE.replace("SERVER_URL_PLACEHOLDER", MY_RENDER_URL)
     return Response(final_code, mimetype='application/javascript')
 
@@ -88,10 +117,6 @@ def upload():
     storage['html'], storage['page_url'] = data.get('html'), data.get('page')
     storage['html_id'] += 1
     return jsonify({"status": "ok"})
-
-
-@app.route('/check-reply', methods=['GET'])
-def check_reply(): return jsonify({"reply": storage['reply'], "id": storage['reply_id']})
 
 
 @app.route('/admin-check', methods=['GET'])
